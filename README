@@ -1,0 +1,39 @@
+
+This is the Text::Macros module -- by John Porter, jdporter@min.net
+
+It is a class for implementing macros in text "templates". 
+
+Macros are sections of text which are to be replaced by the result
+of some function call.  Such sections are set off (delimited) from
+the rest of the text by special delimiter strings.
+Examples of delimiter pairs (opening and closing):
+
+	##		##
+	{{		}}
+	[[		]]
+	<!--		-->
+	<macro-		>
+	macro(		)
+	BEGIN-MACRO	END-MACRO
+
+And so on.
+For more specific information, please see the documentation inside
+Macros.pm.  This can be done by typing
+
+	pod2text Macros.pm
+
+before installation, or 
+
+	perldoc Text::Macros
+
+after installation.
+
+To install the module, do the usual:
+
+   perl Makefile.PL
+   make
+   make test
+   make install
+
+__END__
+
