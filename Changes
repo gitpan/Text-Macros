@@ -1,5 +1,11 @@
 Revision history for Perl extension Text::Macros.
 
+0.04  Tue Oct 26 17:59:39 EDT 1999
+	- created lib/Text, moved .pm file there.  doc mods.
+
+0.03  Wed Aug 11 14:30:53 EDT 1999
+	- expand_macros() in array context returns additional items.
+
 0.02  Fri Jul  9 11:21:45 EDT 1999
 	- added ability to override default argument extraction method.
 

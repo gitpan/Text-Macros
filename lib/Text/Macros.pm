@@ -1,7 +1,7 @@
 
 =head1 NAME
 
-Text::Macros.pm - a class implementing text macros.
+Text::Macros.pm - an object-oriented text macro engine
 
 =head1 SYNOPSIS
 
@@ -23,7 +23,7 @@ package Text::Macros;
 use strict;
 
 use vars qw( $VERSION );
-$VERSION = '0.01';
+$VERSION = '0.04';
 
 =head1 DESCRIPTION
 
@@ -195,13 +195,16 @@ sub expand_macros {
     my $close_delim = $self->{'close_delim'};
 
     while (
-        s($open_delim(.*?)$close_delim) {
-            $self->call_macro( $object, $self->_call_parse_args( $1 ) )
+        s(($open_delim)(.*?)($close_delim)) {
+            local $Text::Macros::open = $1;
+            local $Text::Macros::close = $3;
+            $self->call_macro( $object, $self->_call_parse_args( $2 ) )
         }se
     ) { } # all the work is done in the predicate.
 
     $_;
 }
+
 
 
 =head2 A Utility Method: Call Macro
@@ -245,7 +248,7 @@ They can take any number of arguments, which will all be strings.
 sub call_macro {
     my $self = shift;
     my $object = shift;
-    $_[-1] eq '' and pop @_; # drop last item if empty.
+    defined $_[-1] && $_[-1] eq '' and pop @_; # drop last item if empty.
     my $func = shift;
     $func =~ s/^\s+//;
     $func =~ s/\s+$//;
@@ -354,6 +357,8 @@ __END__
 =head1 AUTHOR
 
 jdporter@min.net (John Porter)
+
+=head1 COPYRIGHT
 
 This module is free software; you may redistribute it and/or
 modify it under the same terms as Perl itself.

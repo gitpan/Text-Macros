@@ -3,5 +3,5 @@ use ExtUtils::MakeMaker;
 # the contents of the Makefile that is written.
 WriteMakefile(
     'NAME'	=> 'Text::Macros',
-    'VERSION_FROM' => 'Macros.pm', # finds $VERSION
+    'VERSION_FROM' => 'lib/Text/Macros.pm', # finds $VERSION
 );

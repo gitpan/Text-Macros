@@ -1,3 +1,4 @@
+#!/usr/local/bin/perl -w
 # Before `make install' is performed this script should be runnable with
 # `make test'. After `make install' it should work as `perl test.pl'
 
@@ -6,8 +7,11 @@
 # Change 1..1 below to 1..last_test_to_print .
 # (It may become useful if the test is moved to ./t subdirectory.)
 
+use lib 'lib';
 BEGIN { use lib qw(.); $| = 1; print "1..21\n"; }
-END {print "not ok 1\n" unless $loaded;}
+END {print "not ok 1\n" unless $loaded;
+#for ( sort keys %INC ) { print "$_: $INC{$_}\n"; }
+}
 use Text::Macros;
 $loaded = 1;
 report(1);
@@ -112,6 +116,7 @@ sub test1 {
 sub D0::alpha { $macval{'alpha'} }
 sub D0::gamma { $macval{'gamma'} }
 
+sub D1::DESTROY { }
 sub D1::AUTOLOAD {
   my $self = shift;
   my $name = $D1::AUTOLOAD;
