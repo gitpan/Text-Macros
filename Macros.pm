@@ -93,14 +93,10 @@ To do this, pass a true value for the third value to the constructor:
 =back
 
 
-
 Macros can take arguments.  Any strings which occur inside the macro text
 after the macro name will be passed as arguments to the macro method call.
-In the current implementation, such strings must be separated by newlines
-(thus allowing whitespace, but not newlines, in the argument values).
-In a future implementation, the rules for determining how the macro text
-will be split up into arguments will be user-defined, with perhaps the
-current style as the default.
+By default, the macro name and any arguments are all separated by newlines.
+You can override this behavior; see the documentation of parse_args, below.
 
 Example:
 
@@ -109,15 +105,18 @@ Example:
  $macro_expander = new Macros qw( {{ }} );
 
  print $macro_expander->expand_macros( $cgi_query, 
-   "You entered {{
-      param
-         Name
-   }} as your name."
+   "You entered {{ param
+    Name }} as your name."
  );
 
 =back
 
-This will replace the substring "macro( param Name )" with the result of calling
+This will replace the substring 
+
+ {{ param
+ Name }}
+
+with the result of calling
 
 =over 4
 
@@ -134,7 +133,7 @@ This will replace the substring "macro( param Name )" with the result of calling
 
 =over 4
 
- Text::Macros->new( $open_delim, $close_delim, $no_CAN_check );
+ Text::Macros->new( $open_delim, $close_delim, $no_CAN_check, $parse_args_cr );
 
 =back
 
@@ -152,6 +151,9 @@ If you have some kind of autoloading, pass a true value for the third
 argument to new().  If you want the expander to assert CAN for each method,
 pass false (the default).
 
+The fourth argument, $parse_args_cr, is a reference to a sub which implements
+your macro argument parsing policy.  See the section on parse_args, below.
+
 =cut
 
 sub new {
@@ -160,6 +162,7 @@ sub new {
     open_delim => shift,
     close_delim => shift,
     no_CAN_check => shift,
+    parse_args_cr => shift, # code ref 
   }, $pkg;
 }
 
@@ -193,13 +196,9 @@ sub expand_macros {
 
     while (
         s($open_delim(.*?)$close_delim) {
-            $self->call_macro( $object,
-                grep { length }
-                map { s/^\s+//; s/\s+$//; $_ }
-                split /\n/, $1
-            )
+            $self->call_macro( $object, $self->_call_parse_args( $1 ) )
         }se
-    ) { } # heh, all the work is done in the predicate.
+    ) { } # all the work is done in the predicate.
 
     $_;
 }
@@ -215,7 +214,7 @@ sub expand_macros {
 
 This is used internally by expand_macros(), but you can call it directly if you wish.
 
-Essentially all this does is the following:
+Essentially all this does is this:
 
 =over 4
 
@@ -246,15 +245,106 @@ They can take any number of arguments, which will all be strings.
 sub call_macro {
     my $self = shift;
     my $object = shift;
-
     $_[-1] eq '' and pop @_; # drop last item if empty.
-
     my $func = shift;
-
+    $func =~ s/^\s+//;
+    $func =~ s/\s+$//;
     $self->{'no_CAN_check'} or $object->can( $func ) or die "Can't $func!";
-
     $object->$func( @_ ) 
 }
+
+
+=head2 Parsing the Macro Arguments: parse_args
+
+This is used internally by expand_macros().
+
+expand_macros tries to call the sub which was passed by reference as the
+fourth argument to new(), if there was one.  If no such coderef was given
+to the constructor, then expand_macros calls the parse_args method in the 
+Text::Macros class, which implements the default behavior of splitting
+the arg text on newlines, triming off leading/trailing whitespace, and
+then dropping any list elements which are '' (empty strings).
+
+To implement some behavior other than the default, you may derive a class
+from Text::Macros which overrides parse_args.  The parse_args method
+takes the Text::Macros object reference as the first arg (as usual), and
+the macro text as the second argument.  This is all the text between the
+delimiters, as it occurs in the template text.  This method is responsible
+for extracting the macro name and the values of any arguments from the
+macro text.  It is advisable that the parse_args routine strip any leading
+and trailing whitespace from the argument values.  (It happens automatically
+for the macro name, though, so you needn't worry about that.)
+
+Example:
+
+=over 4
+
+ package MyMacroParser;
+ @ISA = qw( Text::Macros );
+ sub parse_args {
+    my( $self, $macro_text ) = @_;
+    # return a list of args extracted from $macro_text...
+ }
+
+=back
+
+And then, of course, you would instantiate a MyMacroParser rather than a
+Text::Macros.  Everything else about its usage would be identical.
+
+If you prefer, you can redefine the Text::Macros::parse_args sub directly. 
+That might look something like this:
+
+=over 4
+
+ *Text::Macros::parse_args = sub {
+    my( $self, $macro_text ) = @_;
+    # return a list of args extracted from $macro_text...
+ };
+
+=back
+
+Alternatively, you may pass a code reference as the fourth argument to new().
+The arguments to and results from this sub are the same as for the parse_args
+method, as described above, even though it is not (necessarily) a method itself.
+
+The precedence is this: if a sub was passed to new(), that is called;
+if not, the parse_args() of the derived class is called, if defined;
+if not, the parse_args() of the base class (Text::Macros) is called.
+
+=cut
+
+# PRIVATE: DO NOT OVERRIDE!
+sub _call_parse_args {
+    my( $self, $macro_text ) = @_;
+    if ( defined $self->{'parse_args_cr'} ) {
+        ref($self->{'parse_args_cr'}) =~ /CODE/
+          or die "parse_args_cr is not a code ref!";
+        return( $self->{'parse_args_cr'}->( $self, $macro_text ) );
+    }
+    return( $self->parse_args( $macro_text ) );
+}
+
+#
+# default behavior; this can be overridden in a derived class.
+# the parse_args() method -- in the base class and in any derived class --
+# is ALWAYS superceded by a sub passed as the fourth argument to new().
+#
+sub parse_args {
+    my( $self, $macro_text ) = @_;
+    return(
+        grep  { length }
+        map   { s/^\s+//; s/\s+$//; $_ }
+        split /\n/, $macro_text
+    );
+}
+
+=head1 EXAMPLES
+
+Brief examples of all these usage techniques can be found in the test script,
+test.pl, which accompanies this distribution.  Any questions can be directed
+to the author via email.
+
+=cut
 
 
 1;
@@ -265,7 +355,7 @@ __END__
 
 jdporter@min.net (John Porter)
 
-This program is free software; you may redistribute it and/or
+This module is free software; you may redistribute it and/or
 modify it under the same terms as Perl itself.
 
 =cut

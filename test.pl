@@ -6,7 +6,7 @@
 # Change 1..1 below to 1..last_test_to_print .
 # (It may become useful if the test is moved to ./t subdirectory.)
 
-BEGIN { $| = 1; print "1..16\n"; }
+BEGIN { use lib qw(.); $| = 1; print "1..21\n"; }
 END {print "not ok 1\n" unless $loaded;}
 use Text::Macros;
 $loaded = 1;
@@ -28,13 +28,30 @@ sub report {
   gamma => 'bar',
 );
 
+{
+  # make a derived class:
+  package TestMacro;
+  @TestMacro::ISA = qw( Text::Macros );
+  sub parse_args {
+    my( $self, $arg_text ) = @_;
+    map   { s/^\s+//; s/\s+$//; $_ }
+    split /:/, $arg_text;
+  }
+}
+
 $D0 = bless {}, 'D0';
 $D1 = bless {}, 'D1';
+$D2 = bless {}, 'D2';
+$D3 = bless {}, 'D3';
+$D4 = bless {}, 'D4';
 
 $A0 = new Text::Macros qw( {{ }} );   report( defined $A0 );
 $A1 = new Text::Macros qw( {{ }} 1 ); report( defined $A1 );
 $B0 = new Text::Macros "\Q[[", "\Q]]";    report( defined $B0 );
 $B1 = new Text::Macros "\Q[[", "\Q]]", 1; report( defined $B1 );
+
+$A3 = new Text::Macros '{{', '}}', 0, \&alt_parse_args;   report( defined $A3 );
+$A4 = new TestMacro qw( {{ }} );   report( defined $A4 );
 
 test0( $A0, $D0, 'A{{alpha}}B' => "A$macval{'alpha'}B" );
 
@@ -52,6 +69,18 @@ test0( $B1, $D1, 'A[[alpha]]B' => "A$macval{'alpha'}B" );
 
 test1( $A0, $D1, 'A{{alpha}}B' => "A$macval{'alpha'}B" );
 test1( $B0, $D1, 'A[[alpha]]B' => "A$macval{'alpha'}B" );
+
+# test arg parsers:
+test0( $A0, $D2, 'A{{alpha
+  foo  
+
+ bar }}B' => "Afoo barB" );
+
+# test arg parsers:
+test0( $A3, $D3, 'A{{alpha / foo / bar }}B' => "Afoo/barB" );
+
+# test arg parsers:
+test0( $A4, $D4, 'A{{alpha : foo : bar }}B' => "Afoo:barB" );
 
 ###################################################################
 
@@ -89,4 +118,32 @@ sub D1::AUTOLOAD {
   $name =~ s/.*:://;
   $macval{$name}
 }
+
+# macro takes arguments; joins with ' '
+sub D2::alpha {
+  my( $self, @args ) = @_;
+  join ' ', @args;
+}
+
+# macro takes arguments; joins with '/'
+sub D3::alpha {
+  my( $self, @args ) = @_;
+  join '/', @args;
+}
+
+# macro takes arguments; joins with ':'
+sub D4::alpha {
+  my( $self, @args ) = @_;
+  join ':', @args;
+}
+
+#
+# a replacement for the arg parser; pass it to new().
+#
+sub alt_parse_args {
+  my( $macro_expander, $arg_text ) = @_;
+  map   { s/^\s+//; s/\s+$//; $_ }
+  split /\//, $arg_text;
+}
+
 
